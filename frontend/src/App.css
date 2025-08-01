@@ -1,0 +1,249 @@
+@import './styles/variables.module.css';
+
+body {
+  background-color: #f8f9fa;
+  min-height: 100vh;
+  color: var(--color-texto);
+}
+
+html, #root, .login-container, .container-fluid, .row.h-100 {
+  height: 100%;
+  min-height: 100vh;
+}
+
+.card {
+  border-radius: 1rem;
+  border-color: var(--color-texto);
+  box-shadow: 0 2px 16px 0 rgba(60,72,88,.06);
+}
+
+/* --- Tabla profesional tipo Hyper CRM --- */
+.table.hyper-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 900px;
+  background: #fff;
+  border-radius: 0;
+  overflow: hidden;
+}
+.table.hyper-table thead th {
+  background: #f4f6f8;
+  color: var(--color-texto);
+  font-weight: 700;
+  font-size: 15px;
+  padding: 8px 24px;
+  border-bottom: 2px solid #e9ecef;
+  border-top: none;
+}
+.table.hyper-table tbody td {
+  padding: 23px 24px;
+  font-size: 15px;
+  color: var(--color-texto);
+  border-top: none;
+  border-bottom: 1px solid #f0f1f3;
+  background: #fff;
+}
+.table.hyper-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.table.hyper-table tbody tr:hover {
+  background: #f8f9fa;
+  transition: background 0.2s;
+}
+.table.hyper-table th, .table.hyper-table td {
+  vertical-align: middle;
+}
+
+/* --- Fin tabla profesional --- */
+
+.btn-primary, .btn-success {
+  border-radius: 2rem;
+  font-weight: 500;
+  background: linear-gradient(135deg, var(--color-principal) 0%, #ff6b35 100%);
+  border: none !important;
+  color: #fff;
+}
+
+.btn-primary:hover, .btn-success:hover {
+  background: linear-gradient(135deg, var(--color-secundario) 0%, #333333 100%);
+  color: #fff;
+}
+
+.form-control:focus {
+  box-shadow: 0 0 0 0.2rem rgba(255, 130, 1, 0.25);
+  border-color: var(--color-principal);
+  color: var(--color-texto);
+}
+
+h3, h4 {
+  font-weight: 600;
+  color: var(--color-texto);
+}
+
+.alert {
+  font-size: 0.95rem;
+}
+
+/* Login Styles */
+.login-container {
+  position: relative;
+  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.login-background {
+  display: none;
+}
+
+.login-left {
+  position: relative;
+  min-height: 100vh;
+  height: 100vh;
+}
+
+.login-left::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255,130,1,0.45);
+  z-index: 1;
+}
+
+.login-left > .text-center {
+  position: relative;
+  z-index: 2;
+}
+
+.login-right {
+  background: #ffffff;
+  position: relative;
+  min-height: 100vh;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-form-container {
+  max-width: 400px;
+  width: 100%;
+  padding: 2rem;
+}
+
+.login-title {
+  color: var(--color-texto);
+  font-weight: 700;
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.login-subtitle {
+  color: #6c757d;
+  font-size: 0.95rem;
+  margin-bottom: 2rem;
+}
+
+.login-form .form-label {
+  color: var(--color-texto);
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.5rem;
+}
+
+.login-input {
+  border: 2px solid #e9ecef;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  color: var(--color-texto);
+}
+
+.login-input:focus {
+  border-color: var(--color-principal);
+  box-shadow: 0 0 0 0.2rem rgba(255, 130, 1, 0.25);
+  color: var(--color-texto);
+}
+
+.input-group-text {
+  background-color: #f8f9fa;
+  border: 2px solid #e9ecef;
+  border-right: none;
+  color: var(--color-texto);
+  border-radius: 0.5rem 0 0 0.5rem;
+}
+
+.input-group .form-control {
+  border-left: none;
+  border-radius: 0 0.5rem 0.5rem 0;
+}
+
+.login-btn {
+  background: linear-gradient(135deg, var(--color-principal) 0%, #ff6b35 100%);
+  border: none !important;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: all 0.3s ease;
+  margin-top: 1rem;
+  color: #fff;
+  box-shadow: none;
+}
+
+.login-btn:hover {
+  background: linear-gradient(135deg, var(--color-secundario) 0%, #333333 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 130, 1, 0.3);
+  color: #fff;
+}
+
+.login-alert {
+  border: none;
+  border-radius: 0.5rem;
+  background-color: #f8d7da;
+  color: #721c24;
+  font-size: 0.9rem;
+  padding: 0.75rem 1rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 991.98px) {
+  .login-form-container {
+    padding: 1.5rem;
+  }
+  .login-title {
+    font-size: 1.75rem;
+  }
+  .login-left {
+    display: none !important;
+  }
+  .login-right {
+    min-height: 100vh;
+    height: 100vh;
+  }
+}
+
+/* Animation for form elements */
+.login-form .form-group {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
