@@ -111,3 +111,6 @@ CREATE TABLE IF NOT EXISTS logs_tareas (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (tarea_id) REFERENCES tareas_programadas(id) ON DELETE CASCADE
 ); 
+
+ALTER TABLE expedientes
+ADD COLUMN tipo_mensaje VARCHAR(255);
