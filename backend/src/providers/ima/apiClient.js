@@ -78,6 +78,7 @@ class IMAApiClient {
 
     async buscarServicioIMA(codigo) {
       try {
+        this.setCredentials("imaiberica@cuidacasa.com", "nNiB$EZZD(e5eUA0");
         // Usar la función reutilizable de login
         const xsrfTokenAfterLogin = await this.performLogin();
 

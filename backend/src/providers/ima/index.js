@@ -22,49 +22,195 @@ class IMAProvider extends BaseProvider {
     return await this.apiClient.buscarServicioIMA('test'); // Test de conexión
   }
 
-  async fetchData(sessionId, options = {}) {
-    // Para IMA, los datos vienen de emails, no de una API directa
-    // Por ahora, retornamos un array vacío ya que el procesamiento real
-    // se hace en fetchCodesFromEmails()
-    return [];
-  }
+
 
   async processRawData(rawData, options = {}) {
+    const pool = require('../../config/db');
+    const connection = await pool.getConnection();
+    
     try {
       console.log(`[${this.providerName}] Procesando datos para ${this.compania.nombre}`);
       
-      // Para IMA, el procesamiento real se hace en fetchCodesFromEmails
-      // Aquí solo simulamos el procesamiento
-      const procesados = 0;
-      const omitidos = 0;
-      
-      console.log(`[${this.providerName}] Procesamiento completado: ${procesados} procesados, ${omitidos} omitidos`);
-      
-      return {
-        procesados,
-        omitidos
-      };
+      let expedientesProcesados = 0;
+      let expedientesOmitidos = 0;
+      let expedientesOmitidosServicios = [];
+
+      // Verificar si rawData tiene la estructura esperada
+      if (rawData && rawData.registrosNuevos) {
+        const registrosNuevos = rawData.registrosNuevos;
+        const results = rawData.results || [];
+        
+        console.log(`[${this.providerName}] Procesando ${registrosNuevos.length} registros nuevos`);
+        
+        // Calcular fechas (últimas 24 horas por defecto, o usar fechas específicas)
+        let fechaInicio, fechaFin;
+        
+        if (options.fechaInicio && options.fechaFin) {
+          // Usar fechas específicas proporcionadas
+          fechaInicio = new Date(options.fechaInicio + 'T00:00:00Z');
+          fechaFin = new Date(options.fechaFin + 'T23:59:59Z');
+        } else {
+          // Usar últimas 24 horas por defecto
+          fechaFin = new Date();
+          fechaInicio = new Date(fechaFin.getTime() - (24 * 60 * 60 * 1000));
+        }
+        
+        const fechaInicioStr = fechaInicio.toISOString().split('T')[0];
+        const fechaFinStr = fechaFin.toISOString().split('T')[0];
+
+        // Procesar cada registro nuevo
+        for (const registro of registrosNuevos) {
+          // Crear id_unico concatenando provider y caseNumber
+          const idUnico = `${this.compania.nombre}_${registro.caseNumber || ''}`;
+          
+          // Obtener el classify del registro
+       
+          // Verificar si ya existe
+          const [existe] = await connection.query(
+            'SELECT id FROM expedientes WHERE id_unico = ?',
+            [idUnico]
+          );
+
+          // Lógica específica según el classify
+          let debeProcesar = true;
+          let razonOmitido = '';
+
+          if (existe.length > 0) {
+            // El registro existe, aplicar lógica según classify
+            if (registro.classify === 'Nuevo') {
+              // Si es Nuevo y ya existe, marcar como omitido
+              debeProcesar = false;
+              razonOmitido = 'Registro Nuevo ya existe';
+            } else if (registro.classify === 'Mensaje' || registro.classify === 'Cancelado') {
+              // Si es Mensaje o Cancelado, procesar aunque ya exista
+              debeProcesar = true;
+              razonOmitido = '';
+            } else {
+              // Para otros tipos, no procesar si ya existe
+              debeProcesar = false;
+              razonOmitido = 'Registro ya existe';
+            }
+          }
+
+          if (debeProcesar) {
+            try {
+              // Preparar los datos para insertar
+              const expedienteData = {
+                contractCode: registro.contractCode,
+                companyName: registro.companyName,
+                caseState: registro.caseState,
+                caseNumber: registro.caseNumber,
+                caseDeclaration: registro.caseDeclaration,
+                notificationNumber: registro.notificationNumber,
+                caseTreatment: registro.caseTreatment,
+                caseType: registro.caseType,
+                caseDescription: registro.caseDescription,
+                caseDate: registro.caseDate,
+                isUrgent: registro.isUrgent,
+                isVIP: registro.isVIP,
+                clientName: registro.clientName,
+                clientPhone: registro.clientPhone,
+                clientPhone2: registro.clientPhone2,
+                clientVATNumber: registro.clientVATNumber,
+                countryISOCode: registro.countryISOCode,
+                address: registro.address,
+                city: registro.city,
+                zipCode: registro.zipCode,
+                policyNumber: registro.policyNumber,
+                processorName: registro.processorName,
+                capabilityDescription: registro.capabilityDescription,
+                classify: registro.classify,
+                provider: registro.provider,
+                message: registro.message,
+                budget: registro.budget
+              };
+
+              // Insertar en la base de datos
+              await connection.query(
+                'INSERT INTO expedientes (data, data_raw, status, servicio, fecha_asignacion, cliente, id_unico,TipoRegistro) VALUES (?, ?, ?, ?, ?, ?, ?,?)',
+                [
+                  JSON.stringify(expedienteData), 
+                  JSON.stringify(registro), 
+                  'pendiente', 
+                  registro.caseNumber || null, 
+                  registro.caseDate ? new Date(registro.caseDate).toISOString().split('T')[0] : null, 
+                  this.compania.nombre, 
+                  idUnico,
+                  registro.classify
+                ]
+              );
+              
+              expedientesProcesados++;
+              console.log(`✅ Expediente procesado: ${registro.caseNumber} (${classify})`);
+              
+            } catch (error) {
+              // Si hay error de duplicado por el índice único, contar como omitido
+              if (error.code === 'ER_DUP_ENTRY') {
+                expedientesOmitidos++;
+                expedientesOmitidosServicios.push(registro.caseNumber || null);
+                console.log(`⚠️ Expediente duplicado omitido: ${registro.caseNumber} (${classify})`);
+              } else {
+                console.error(`❌ Error insertando expediente ${registro.caseNumber}:`, error.message);
+                expedientesOmitidos++;
+                expedientesOmitidosServicios.push(registro.caseNumber || null);
+              }
+            }
+          } else {
+            expedientesOmitidos++;
+            expedientesOmitidosServicios.push(registro.caseNumber || null);
+            console.log(`⚠️ Expediente omitido: ${registro.caseNumber} (${classify}) - ${razonOmitido}`);
+          }
+        }
+
+        console.log(`[${this.providerName}] Procesamiento completado: ${expedientesProcesados} procesados, ${expedientesOmitidos} omitidos`);
+        
+        return {
+          procesados: expedientesProcesados,
+          omitidos: expedientesOmitidos,
+          omitidosServicios: expedientesOmitidosServicios,
+          total_disponible: registrosNuevos.length,
+          fecha_inicio: fechaInicioStr,
+          fecha_fin: fechaFinStr,
+          registrosNuevos: registrosNuevos
+        };
+        
+      } else {
+        // Fallback para datos que no tienen la estructura esperada
+        console.log(`[${this.providerName}] No hay registros nuevos para procesar`);
+        
+        return {
+          procesados: 0,
+          omitidos: 0,
+          omitidosServicios: [],
+          total_disponible: 0,
+          fecha_inicio: null,
+          fecha_fin: null
+        };
+      }
       
     } catch (error) {
       console.error(`[${this.providerName}] Error en procesamiento:`, error);
       throw error;
+    } finally {
+      connection.release();
     }
   }
 
-  async fetchCodesFromEmails() {
+  async fetchData(options) {
     // CONSTANTE DE CONFIGURACIÓN PARA TIPO DE LECTURA
     const READ_MODE = 1; // 0 = leer todos los correos, 1 = leer solo pendientes
     const markAsRead = false;
     const results = [];
+    const registrosNuevos = []; // Array para almacenar todos los RegistroNuevo
 
     // Configurar cuentas IMAP (esto debería venir de la configuración)
     const imapAccounts = [
       {
-        host: 'imap.gmail.com',
-        port: 993,
-        secure: true,
-        user: process.env.IMA_EMAIL_USER,
-        password: process.env.IMA_EMAIL_PASSWORD
+        host: options.compania.hostname,
+        port: options.compania.hostport,
+        secure: options.compania.secure[0],
+        user: options.compania.username,
+        password: options.compania.password
       }
     ];
 
@@ -146,7 +292,7 @@ class IMAProvider extends BaseProvider {
              
               if (!datos) {
                 console.error('❌ datos está indefinido');
-                return;
+                continue; // Continuar con el siguiente correo
               }
               
               let phones = (datos?.client_phone_number || '').split(' / ').filter(p => p && p.toLowerCase() !== 'null');
@@ -180,13 +326,17 @@ class IMAProvider extends BaseProvider {
                 policyNumber: '',
                 processorName: '',
                 capabilityDescription: datos?.category.name,
-                classify: actionType.description,
+                classify: this.dataProcessor.clasificarTipoAccion(actionType.description),
                 provider: 'IMA',
                 message: datos?.service_messages[0]?.message || '',
                 budget: budget_lines
               };
               
               console.log('✅ RegistroNuevo creado:', RegistroNuevo);
+              
+              // Agregar el RegistroNuevo al array de resultados
+              registrosNuevos.push(RegistroNuevo);
+              
               // Marcar como leído si corresponde
               // if (markAsRead && msg.uid) {
               //   await client.messageFlagsAdd(msg.uid, ['\\Seen']);
@@ -210,8 +360,13 @@ class IMAProvider extends BaseProvider {
       }
     }
 
-    logger.info(`🏁 Proceso completado. Total de resultados: ${results.length}`);
-    return results;
+    logger.info(`🏁 Proceso completado. Total de resultados: ${results.length}, Total de RegistroNuevo: ${registrosNuevos.length}`);
+    
+    // Retornar tanto los resultados de clasificación como los RegistroNuevo
+    return {
+      results: results,
+      registrosNuevos: registrosNuevos
+    };
   }
 }
 
