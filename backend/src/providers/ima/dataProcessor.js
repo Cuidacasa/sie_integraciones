@@ -101,8 +101,8 @@ class IMADataProcessor {
     
     determinarTipoCaso(typology = '', category = '') {
       const rules = [
-        { match: txt => txt.includes('danos por água') || txt.includes('fontanería'), type: 'Daños por Agua' },
-        { match: txt => txt.includes('danos eléctricos'), type: 'Daños Eléctricos' },
+        { match: txt => txt.includes('daños por água') || txt.includes('fontanería'), type: 'Daños por Agua' },
+        { match: txt => txt.includes('daños eléctricos'), type: 'Daños Eléctricos' },
         { match: txt => txt.includes('asistencia no cubierta'), type: 'Conexión o contado' },
         { match: txt => txt.includes('manitas'), type: 'Bricolaje/Manitas' },
       ];

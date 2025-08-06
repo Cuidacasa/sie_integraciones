@@ -17,6 +17,80 @@ class IMAProvider extends BaseProvider {
     this.dataProcessor = new IMADataProcessor();
   }
 
+  /**
+   * Extraer la ciudad del campo address
+   * @param {string} address - Dirección completa (ej: 'CL ANGELA GONZALEZ 8 28038 MADRID Spain')
+   * @returns {string} - Ciudad extraída (ej: 'MADRID')
+   */
+  extraerCiudad(address) {
+    if (!address) return '';
+    
+    try {
+      // Dividir por "Spain" y tomar la parte anterior
+      const parts = address.split(/\s+Spain/i);
+      if (parts.length === 0) return '';
+      
+      const beforeSpain = parts[0].trim();
+      if (!beforeSpain) return '';
+      
+      // Buscar retrocediendo desde el final hasta encontrar un número
+      // y tomar todas las palabras entre el número y el final
+      const words = beforeSpain.split(/\s+/);
+      let cityWords = [];
+      let foundNumber = false;
+      
+      // Recorrer las palabras de derecha a izquierda
+      for (let i = words.length - 1; i >= 0; i--) {
+        const word = words[i];
+        
+        // Si encontramos un número, paramos
+        if (/\d+/.test(word)) {
+          foundNumber = true;
+          break;
+        }
+        
+        // Si no es un número, agregar a las palabras de la ciudad
+        cityWords.unshift(word);
+      }
+      
+      // Si encontramos un número y tenemos palabras de ciudad
+      if (foundNumber && cityWords.length > 0) {
+        return cityWords.join(' ').trim();
+      }
+      
+      // Fallback: buscar el último grupo de letras después del código postal
+      const cityMatch = beforeSpain.match(/\d+\s+([A-ZÁÉÍÓÚÑ\s]+)$/i);
+      
+      if (cityMatch && cityMatch[1]) {
+        return cityMatch[1].trim();
+      }
+      
+      // Si no encuentra el patrón con números, buscar la última palabra en mayúsculas
+      const lastWord = words[words.length - 1];
+      
+      // Verificar si la última palabra es una ciudad (solo letras y mayúsculas)
+      if (lastWord && /^[A-ZÁÉÍÓÚÑ]+$/.test(lastWord)) {
+        return lastWord;
+      }
+      
+      // Buscar cualquier palabra en mayúsculas que parezca una ciudad
+      const cityWordsFiltered = words.filter(word => 
+        /^[A-ZÁÉÍÓÚÑ]+$/.test(word) && 
+        word.length > 2 && 
+        !/^(CL|AV|CALLE|AVENIDA|PLAZA|PASEO|CARRER|GRAN|VIA)$/i.test(word)
+      );
+      
+      if (cityWordsFiltered.length > 0) {
+        return cityWordsFiltered[cityWordsFiltered.length - 1]; // Tomar la última ciudad encontrada
+      }
+      
+      return '';
+    } catch (error) {
+      console.error('Error extrayendo ciudad:', error);
+      return '';
+    }
+  }
+
   async authenticate(username, password) {
     this.apiClient.setCredentials(username, password);
     return await this.apiClient.buscarServicioIMA('test'); // Test de conexión
@@ -141,14 +215,14 @@ class IMAProvider extends BaseProvider {
               );
               
               expedientesProcesados++;
-              console.log(`✅ Expediente procesado: ${registro.caseNumber} (${classify})`);
+              console.log(`✅ Expediente procesado: ${registro.caseNumber} (${registro.classify})`);
               
             } catch (error) {
               // Si hay error de duplicado por el índice único, contar como omitido
               if (error.code === 'ER_DUP_ENTRY') {
                 expedientesOmitidos++;
                 expedientesOmitidosServicios.push(registro.caseNumber || null);
-                console.log(`⚠️ Expediente duplicado omitido: ${registro.caseNumber} (${classify})`);
+                console.log(`⚠️ Expediente duplicado omitido: ${registro.caseNumber} (${registro.classify})`);
               } else {
                 console.error(`❌ Error insertando expediente ${registro.caseNumber}:`, error.message);
                 expedientesOmitidos++;
@@ -158,7 +232,7 @@ class IMAProvider extends BaseProvider {
           } else {
             expedientesOmitidos++;
             expedientesOmitidosServicios.push(registro.caseNumber || null);
-            console.log(`⚠️ Expediente omitido: ${registro.caseNumber} (${classify}) - ${razonOmitido}`);
+            console.log(`⚠️ Expediente omitido: ${registro.caseNumber} (${registro.classify}) - ${razonOmitido}`);
           }
         }
 
@@ -296,9 +370,9 @@ class IMAProvider extends BaseProvider {
               }
               
               let phones = (datos?.client_phone_number || '').split(' / ').filter(p => p && p.toLowerCase() !== 'null');
-              let typology = (datos?.typology?.name || '').toLowerCase();
-              let category = (datos?.category?.name || '').toLowerCase();
-              
+              let typology = (language[datos?.typology?.name] || datos?.typology?.name || 'Sin Tipologia').toLowerCase();
+              let category = (language[datos?.category?.name || ''] || datos?.category?.name || '').toLowerCase();
+        
               const caseType = this.dataProcessor.determinarTipoCaso(typology, category);
               const budget_lines = await this.apiClient.obtenerBudgetLines(datos?.id, language);
               
@@ -311,7 +385,7 @@ class IMAProvider extends BaseProvider {
                 notificationNumber: datos?.ima_process_number||'',
                 caseTreatment: '',
                 caseType: caseType,
-                caseDescription: datos?.observations || '-',
+                caseDescription: typology+' '+datos?.service_coverage+' '+datos?.observations || '-',
                 caseDate: datos?.opening_date, // asegúrate que now esté definido
                 isUrgent: datos?.service_urgency === 0 ? 'NO' : 'SI',
                 isVIP: false,
@@ -321,11 +395,11 @@ class IMAProvider extends BaseProvider {
                 clientVATNumber: '',
                 countryISOCode: 'ES',
                 address: datos?.address || '-',
-                city: '',
+                city: this.extraerCiudad(datos?.address) || '',
                 zipCode: datos?.postal_code || '',
-                policyNumber: '',
+                policyNumber: datos?.service_insurance?.name || '',
                 processorName: '',
-                capabilityDescription: datos?.category.name,
+                capabilityDescription: category,
                 classify: this.dataProcessor.clasificarTipoAccion(actionType.description),
                 provider: 'IMA',
                 message: datos?.service_messages[0]?.message || '',
