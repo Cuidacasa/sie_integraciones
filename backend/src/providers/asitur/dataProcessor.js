@@ -192,9 +192,7 @@ class AsiturDataProcessor {
 
 
         // Extraer observaciones - busca en la línea siguiente
-        info.observaciones = this.extraerObservaciones(cuerpo) 
-        || this.extraerValorDespuesDeLabel(cuerpo, "Observaciones:", 1)
-        || this.extraerValorDespuesDeLabel(cuerpo, "Observaciones póliza:", 1);
+        info.observaciones = this.extraerObservaciones(cuerpo);
 
 
         console.log(`📋 Información extraída:`, info);
@@ -386,10 +384,8 @@ class AsiturDataProcessor {
             caseState: '', // Si lo usas, agrégalo
             caseDeclaration: this.removeImgTags(bodyHtml),
             caseTreatment: "Normal",
-            provider: cuentaUser,
-            classify: 'Nuevo', // Lo ajustaremos en el provider según el caso
-            message: parsed.subject || '',
-            budget: null // Si aplica
+            provider: cuentaUser,       
+            franchisePrice:0
         };
 
         // Adjuntos:

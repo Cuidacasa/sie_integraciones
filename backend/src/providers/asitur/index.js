@@ -119,8 +119,7 @@ class AsiturProvider extends BaseProvider {
                     if (this.dataProcessor.esExpedienteNuevo(parsed.subject)) {
                         // Utiliza el extractor avanzado del manual 1.0
                         const expediente = await this.dataProcessor.extraerExpedienteDesdeCorreo(parsed, item.cuenta);
-                        expediente.classify = 'Nuevo';
-
+                        const classify = 'Nuevo';
                         // Crear id_unico concatenando compañía y caseNumber
                         const idUnico = `${this.compania.nombre}_${expediente.caseNumber || ''}`;
 
@@ -135,11 +134,11 @@ class AsiturProvider extends BaseProvider {
 
                         if (existe.length > 0) {
                             // El registro existe, aplicar lógica según classify
-                            if (expediente.classify === 'Nuevo') {
+                            if (classify === 'Nuevo') {
                                 // Si es Nuevo y ya existe, marcar como omitido
                                 debeProcesar = false;
                                 razonOmitido = 'Registro Nuevo ya existe';
-                            } else if (expediente.classify === 'Mensaje' || expediente.classify === 'Cancelado') {
+                            } else if (classify === 'Mensaje' || classify === 'Cancelado') {
                                 // Si es Mensaje o Cancelado, procesar aunque ya exista
                                 debeProcesar = true;
                                 razonOmitido = '';
@@ -159,11 +158,11 @@ class AsiturProvider extends BaseProvider {
                                         JSON.stringify(expediente),
                                         '',//JSON.stringify(expediente),
                                         'pendiente',
-                                        idUnico,//expediente.caseNumber || null, 
+                                        expediente.caseNumber ,//expediente.caseNumber || null, 
                                         expediente.caseDate ? new Date(expediente.caseDate).toISOString().split('T')[0] : null,
                                         this.compania.nombre,
                                         idUnico,
-                                        expediente.classify
+                                        classify
                                     ]
                                 );
                                 
