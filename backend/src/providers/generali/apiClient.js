@@ -5,8 +5,8 @@ const axios = require('axios');
 // ----- Mapeo manual de usuarios por correo (puedes luego migrar a base de datos) -----
 const userMap = {
     // 'correo@dominio.com': { company: 'K', user: 'usuario', password: 'clave' }
-    'generali1@empresa.com': { company: 'K', user: 'pgseh5v', password: 'Rondaap100' },
-    'generali2@empresa.com': { company: 'K', user: 'usuario2', password: 'clave2' }
+    'generali@apris.app': { company: 'K', user: 'pgseh5v', password: 'Rondaap100' },
+    'generali@cuidacasa.com': { company: 'K', user: 'pgsekj4', password: 'Rondacu100' }
     // ...agrega aquí otros mapeos según tu necesidad
 };
 
@@ -37,7 +37,7 @@ class GeneraliApiClient {
             if (response.data.codeError !== "000") {
                 throw new Error(`Login Generali falló: ${response.data.codeError} - ${response.data.error || 'Error desconocido'}`);
             }
-            return response.data.session; // Token
+            return response.data.sesion; // Token
         } catch (err) {
             throw new Error(`Error autenticando contra Generali: ${err.message}`);
         }

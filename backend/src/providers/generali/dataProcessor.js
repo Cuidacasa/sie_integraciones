@@ -84,41 +84,42 @@ class GeneraliDataProcessor {
     
     // ---- 6. Extracción de expediente GENERALI ----
     async  extraerExpedienteGenerali(xmlBody) {
-        const data = await parsearXMLAsync(xmlBody);
+        const data = await this.parsearXMLAsync(xmlBody);
         // Permite campos con distintos nombres (mayúsculas/minúsculas)
         const order = data.ORDER || {};
         const get = (key) => order[key] || order[key.toUpperCase()] || order[key.toLowerCase()] || '';
     
         return {
-            idOrder: safeString(get('ID_ORDER') || get('ORDERID')),
-            company: safeString(get('COMPANY')),
-            operationDate: safeString(get('OPERATION_DATE')),
-            idClaim: safeString(get('ID_CLAIM')),
-            operationType: safeString(get('OPERATION_TYPE')),
-            idProfessional: safeString(get('ID_PROFESSIONAL')),
+            idOrder: this.safeString(get('ID_ORDER') || get('ORDERID')),
+            company: this.safeString(get('COMPANY')),
+            operationDate: this.safeString(get('OPERATION_DATE')),
+            idClaim: this.safeString(get('ID_CLAIM')),
+            operationType: this.safeString(get('OPERATION_TYPE')),
+            idProfessional: this.safeString(get('ID_PROFESSIONAL')),
             rawOrder: order
         };
     }
     
     // ---- 7. Extracción de comunicación GENERALI ----
     async  extraerComunicacionGenerali(xmlBody) {
-        const data = await parsearXMLAsync(xmlBody);
+        const data = await this.parsearXMLAsync(xmlBody);
         const dialog = data.DIALOG || {};
         const get = (key) => dialog[key] || dialog[key.toUpperCase()] || dialog[key.toLowerCase()] || '';
     
         // Saca todos los campos clave
         return {
-            company: safeString(get('COMPANY')),
-            idDialog: safeString(get('ID_DIALOG')),
-            idOrder: safeString(get('ID_ORDER')),
-            idParentDialog: safeString(get('ID_PARENT_DIALOG')),
-            transmitter: safeString(get('TRANSMITTER')),
-            receiver: safeString(get('RECEIVER')),
-            issue: safeString(get('ISSUE')),
-            message: safeString(get('MESSAGE')),
-            hasDocumentation: safeString(get('HAS_DOCUMENTATION')),
-            answerRequired: safeString(get('ANSWER_REQUIRED')),
-            idProfessional: safeString(get('ID_PROFESSIONAL')),
+            company: this.safeString(get('COMPANY')),
+            idDialog: this.safeString(get('ID_DIALOG')),
+            idOrder: this.safeString(get('ID_ORDER')),
+            idParentDialog: this.safeString(get('ID_PARENT_DIALOG')),
+            transmitter: this.safeString(get('TRANSMITTER')),
+            receiver: this.safeString(get('RECEIVER')),
+            issue: this.safeString(get('ISSUE')),
+            message: this.safeString(get('MESSAGE')),
+            hasDocumentation: this.safeString(get('HAS_DOCUMENTATION')),
+            answerRequired: this.safeString(get('ANSWER_REQUIRED')),
+            idProfessional: this.safeString(get('ID_PROFESSIONAL')),
+            idClaim: this.safeString(get('ID_CLAIM')),
             rawDialog: dialog
         };
     }

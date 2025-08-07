@@ -1,13 +1,12 @@
 // index.js - Provider Generali
-
+const he = require('he');
 const BaseProvider = require('../../core/baseProvider');
 const GeneraliApiClient = require('./apiClient');
 const GeneraliDataProcessor = require('./dataProcessor');
-
-const pool = require('../../db/mysqlPool'); // O tu pool de BD
+const { ImapFlow } = require('imapflow');
+const pool = require('../../config/db');
 const { simpleParser } = require('mailparser');
-
-
+const { getBearerToken } = require('../../utils/bearerToken');
 class GeneraliProvider extends BaseProvider {
     constructor(compania) {
         super(compania);
@@ -19,9 +18,7 @@ class GeneraliProvider extends BaseProvider {
     // 1. Login DIAPLE para obtener token (igual que authenticate de Asitur)
     async authenticate() {
         // Puedes parametrizar usuario y clave vía ENV o config
-        const usuarioDiaple = process.env.DIAPLE_USER || 'zasylogic';
-        const claveDiaple = process.env.DIAPLE_PASS || 's6AikLPci6WJbp';
-        this.token = await loginDiaple(usuarioDiaple, claveDiaple);
+        this.token = await getBearerToken();
     }
 
     // 2. Obtención y filtrado de correos
@@ -73,7 +70,19 @@ class GeneraliProvider extends BaseProvider {
             try {
                 const parsed = await simpleParser(item.source);
                 const asunto = (parsed.subject || '').toLowerCase().trim();
-                const bodyXml = parsed.text;
+                let html = parsed.html || '';
+
+                html = html.replace(/<img[^>]*>/gi, '').replace(/<br\s*\/?>/gi, ''); // quita imágenes y saltos
+                const xmlText = he.decode(html); // convierte &lt;...&gt; en <...>
+
+                // Si hay texto basura antes/después, extrae solo la parte del XML
+                let xmlMatch =
+                    xmlText.match(/<\?xml[\s\S]+<\/ORDER>/i) ||
+                    xmlText.match(/<ORDER[\s\S]+<\/ORDER>/i) ||
+                    xmlText.match(/<\?xml[\s\S]+<\/DIALOG>/i) ||
+                    xmlText.match(/<DIALOG[\s\S]+<\/DIALOG>/i);
+
+                const bodyXml = xmlMatch ? xmlMatch[0] : xmlText;
 
                 let classify = '';
                 let idUnico = '';
@@ -82,9 +91,9 @@ class GeneraliProvider extends BaseProvider {
 
                 if (asunto.includes('nuevo encargo')) {
                     // ------ FLUJO CREACIÓN DE EXPEDIENTE ------
-                    const datos = await extraerExpedienteGenerali(bodyXml);
+                    const datos = await this.dataProcessor.extraerExpedienteGenerali(bodyXml);
                     classify = 'Nuevo';
-                    const prefijo = getPrefijoGenerali('user_segun_email', item.cuenta); // Corrige si tienes user real
+                    const prefijo = this.dataProcessor.getPrefijoGenerali('user_segun_email', item.cuenta); // Corrige si tienes user real
                     idUnico = `${prefijo}_${datos.idOrder}`;
 
                     // Verifica duplicados
@@ -98,7 +107,7 @@ class GeneraliProvider extends BaseProvider {
                     // Login Generali
                     let tokenGenerali;
                     try {
-                        tokenGenerali = await loginGenerali(item.cuenta);
+                        tokenGenerali = await this.apiClient.loginGenerali(item.cuenta);
                     } catch (err) {
                         tipoRegistro = 'ErrorObtenerDatos';
                         await this._guardarExpedienteError(datos, item, idUnico, tipoRegistro, connection, err.message);
@@ -108,7 +117,7 @@ class GeneraliProvider extends BaseProvider {
                     // Detalle de expediente
                     let detalle;
                     try {
-                        detalle = await getOrderDetail(tokenGenerali, {
+                        detalle = await this.apiClient.getOrderDetail(tokenGenerali, {
                             orderID: datos.idOrder,
                             company: datos.company,
                             claimNumber: datos.idClaim,
@@ -121,7 +130,7 @@ class GeneraliProvider extends BaseProvider {
                     }
 
                     // Armar el JSON para DIAPLE
-                    dataFinal = buildExpedienteDiaple({
+                    dataFinal = this.dataProcessor.buildExpedienteDiaple({
                         from: parsed.from?.text || '',
                         prefijo,
                         caseNumber: datos.idOrder,
@@ -129,16 +138,16 @@ class GeneraliProvider extends BaseProvider {
                         subject: parsed.subject,
                         content: detalle.observations?.join('\n') || '', // Ajusta según lo que requieras
                         tos: parsed.to?.value?.map(x => x.address) || [],
-                        attachments: buildAttachmentsFromMail(parsed)
+                        attachments: this.dataProcessor.buildAttachmentsFromMail(parsed)
                     });
                     tipoRegistro = classify;
 
                 } else if (asunto.includes('nuevo diálogo') || asunto.includes('nuevo dialogo')) {
                     // ------ FLUJO ENVÍO DE COMUNICACIONES ------
-                    const datos = await extraerComunicacionGenerali(bodyXml);
+                    const datos = await this.dataProcessor.extraerComunicacionGenerali(bodyXml);
                     classify = 'Mensaje';
-                    const prefijo = getPrefijoGenerali('user_segun_email', item.cuenta);
-                    idUnico = `${prefijo}_${datos.idOrder}`;
+                    const prefijo = this.dataProcessor.getPrefijoGenerali('user_segun_email', item.cuenta);
+                    idUnico = `${this.compania.nombre}_${datos.idOrder}`;
 
                     const [existe] = await connection.query('SELECT id FROM expedientes WHERE id_unico = ?', [idUnico]);
                     if (existe.length > 0) {
@@ -150,7 +159,7 @@ class GeneraliProvider extends BaseProvider {
                     // Login Generali
                     let tokenGenerali;
                     try {
-                        tokenGenerali = await loginGenerali(item.cuenta);
+                        tokenGenerali = await this.apiClient.loginGenerali(item.cuenta);
                     } catch (err) {
                         tipoRegistro = 'ErrorObtenerDatos';
                         await this._guardarExpedienteError(datos, item, idUnico, tipoRegistro, connection, err.message);
@@ -160,7 +169,7 @@ class GeneraliProvider extends BaseProvider {
                     // Detalle de comunicaciones
                     let dialogList;
                     try {
-                        dialogList = await getDialogList(tokenGenerali, {
+                        dialogList = await this.apiClient.getDialogList(tokenGenerali, {
                             orderID: datos.idOrder,
                             company: datos.company,
                             claimNumber: datos.idClaim,
@@ -172,7 +181,7 @@ class GeneraliProvider extends BaseProvider {
                         omitidos++; continue;
                     }
 
-                    dataFinal = buildComunicacionDiaple({
+                    dataFinal = this.dataProcessor.buildComunicacionDiaple({
                         from: parsed.from?.text || '',
                         prefijo,
                         caseNumber: datos.idOrder,
@@ -180,7 +189,7 @@ class GeneraliProvider extends BaseProvider {
                         subject: parsed.subject,
                         content: dialogList.messages?.map(msg => msg.message).join('\n') || '',
                         tos: parsed.to?.value?.map(x => x.address) || [],
-                        attachments: buildAttachmentsFromMail(parsed)
+                        attachments: this.dataProcessor.buildAttachmentsFromMail(parsed)
                     });
                     tipoRegistro = classify;
                 } else {
