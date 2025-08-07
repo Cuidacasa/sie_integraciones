@@ -242,7 +242,7 @@ class AsiturProvider extends BaseProvider {
                                         JSON.stringify(expediente),
                                         JSON.stringify(expediente),
                                         'pendiente',
-                                        idUnico,//expediente.caseNumber || null,
+                                        expediente.caseNumber || null,
                                         expediente.date ? new Date(expediente.date).toISOString().split('T')[0] : null,
                                         this.compania.nombre,
                                         idUnico,

@@ -311,7 +311,7 @@ class AsiturDataProcessor {
             from: parsed.from?.text || '-',
             caseLogTypeCode,
             contractCode: this.GetPrefijoAsitur(cuentaUser, info.provincia, info.tipoSiniestro),
-            caseNumber: expediente,
+            caseNumber: info.referencia,
             date: parsed.date,
             subject: asunto,
             htmlText: this.escapeHtmlForJson(cuerpo),
