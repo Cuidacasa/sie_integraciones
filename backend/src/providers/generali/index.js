@@ -146,7 +146,6 @@ class GeneraliProvider extends BaseProvider {
                     // ------ FLUJO ENVÍO DE COMUNICACIONES ------
                     const datos = await this.dataProcessor.extraerComunicacionGenerali(bodyXml);
                     classify = 'Mensaje';
-                    const prefijo = this.dataProcessor.getPrefijoGenerali('user_segun_email', item.cuenta);
                     idUnico = `${this.compania.nombre}_${datos.idOrder}`;
 
                     const [existe] = await connection.query('SELECT id FROM expedientes WHERE id_unico = ?', [idUnico]);
@@ -165,7 +164,8 @@ class GeneraliProvider extends BaseProvider {
                         await this._guardarExpedienteError(datos, item, idUnico, tipoRegistro, connection, err.message);
                         omitidos++; continue;
                     }
-
+                    const prefijo = this.dataProcessor.getPrefijoGenerali('user_segun_email', item.cuenta);
+                   
                     // Detalle de comunicaciones
                     let dialogList;
                     try {
@@ -183,7 +183,7 @@ class GeneraliProvider extends BaseProvider {
 
                     dataFinal = this.dataProcessor.buildComunicacionDiaple({
                         from: parsed.from?.text || '',
-                        prefijo,
+                        prefijo:prefijo,
                         caseNumber: datos.idOrder,
                         date: parsed.date ? new Date(parsed.date).toISOString() : '',
                         subject: parsed.subject,
@@ -191,6 +191,7 @@ class GeneraliProvider extends BaseProvider {
                         tos: parsed.to?.value?.map(x => x.address) || [],
                         attachments: this.dataProcessor.buildAttachmentsFromMail(parsed)
                     });
+                    await this.apiClient.enviarComunicacionDiaple(dataFinal, this.token);
                     tipoRegistro = classify;
                 } else {
                     // Otros asuntos: omite o maneja según política
@@ -203,7 +204,7 @@ class GeneraliProvider extends BaseProvider {
                     'INSERT INTO expedientes (data, data_raw, status, servicio, fecha_asignacion, cliente, id_unico, TipoRegistro) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
                     [
                         JSON.stringify(dataFinal),
-                        JSON.stringify(item),
+                        JSON.stringify(dataFinal),
                         'pendiente',
                         dataFinal.caseNumber || null,
                         dataFinal.date ? dataFinal.date.split('T')[0] : null,

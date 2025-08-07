@@ -1,5 +1,11 @@
 // dataProcessor.js - Extracción de datos de correos GENERALI
 const xml2js = require('xml2js');
+const userMap = {
+    // 'correo@dominio.com': { company: 'K', user: 'usuario', password: 'clave' }
+    'generali@apris.app': { company: 'K', user: 'pgseh5v', password: 'Rondaap100' },
+    'generali@cuidacasa.com': { company: 'K', user: 'pgsekj4', password: 'Rondacu100' }
+    // ...agrega aquí otros mapeos según tu necesidad
+};
 class GeneraliDataProcessor {
     constructor() {
         this.parsearXMLAsync = this.parsearXMLAsync.bind(this);
@@ -16,11 +22,12 @@ class GeneraliDataProcessor {
     
     // ---- 2. Helper para mapping de prefijos ----
      getPrefijoGenerali(user, correo) {
-        if (user === 'pgsekj4' && !correo.includes('cajamar')) return 'Ge';
-        if (user === 'pgse2k3') return 'GeMad';
-        if (user === 'pgseh5v' && !correo.includes('cajamar')) return 'GeGir';
-        if (user === 'pgsekj4' && correo.includes('cajamar')) return 'Cm';
-        if (user === 'pgseh5v' && correo.includes('cajamar')) return 'CmGir';
+         user = userMap[correo];
+        if (user.user === 'pgsekj4' && !correo.includes('cajamar')) return 'Ge';
+        if (user.user === 'pgse2k3') return 'GeMad';
+        if (user.user === 'pgseh5v' && !correo.includes('cajamar')) return 'GeGir';
+        if (user.user === 'pgsekj4' && correo.includes('cajamar')) return 'Cm';
+        if (user.user === 'pgseh5v' && correo.includes('cajamar')) return 'CmGir';
         return '';
     }
     
@@ -42,13 +49,13 @@ class GeneraliDataProcessor {
         attachments = []
     }) {
         return {
-            from: safeString(from),
+            from: this.safeString(from),
             caseLogTypeCode: "CASE", // O el código que pida la integración
             contractCode: prefijo,
-            caseNumber: safeString(caseNumber),
-            date: safeString(date),
-            subject: safeString(subject),
-            content: safeString(content),
+            caseNumber: this.safeString(caseNumber),
+            date: this.safeString(date),
+            subject: this.safeString(subject),
+            content: this.safeString(content),
             tos: Array.isArray(tos) ? tos : [tos],
             cccs: [],
             bccs: [],
@@ -68,13 +75,13 @@ class GeneraliDataProcessor {
         attachments = []
     }) {
         return {
-            from: safeString(from),
+            from: this.safeString(from),
             caseLogTypeCode: "DOCUMENT",
             contractCode: prefijo,
-            caseNumber: safeString(caseNumber),
-            date: safeString(date),
-            subject: safeString(subject),
-            content: safeString(content),
+            caseNumber: this.safeString(caseNumber),
+            date: this.safeString(date),
+            subject: this.safeString(subject),
+            content: this.safeString(content),
             tos: Array.isArray(tos) ? tos : [tos],
             cccs: [],
             bccs: [],
