@@ -94,7 +94,7 @@ class GeneraliProvider extends BaseProvider {
                     const datos = await this.dataProcessor.extraerExpedienteGenerali(bodyXml);
                     classify = 'Nuevo';
                     const prefijo = this.dataProcessor.getPrefijoGenerali('user_segun_email', item.cuenta); // Corrige si tienes user real
-                    idUnico = `${prefijo}_${datos.idOrder}`;
+                    idUnico = `${this.compania.nombre}_${datos.idClaim}`;
 
                     // Verifica duplicados
                     const [existe] = await connection.query('SELECT id FROM expedientes WHERE id_unico = ?', [idUnico]);
@@ -132,13 +132,14 @@ class GeneraliProvider extends BaseProvider {
                     // Armar el JSON para DIAPLE
                     dataFinal = this.dataProcessor.buildExpedienteDiaple({
                         from: parsed.from?.text || '',
-                        prefijo,
-                        caseNumber: datos.idOrder,
+                        prefijo:prefijo,
+                        caseNumber: datos.idClaim,
                         date: parsed.date ? new Date(parsed.date).toISOString() : '',
-                        subject: parsed.subject,
+                        subject: 'Nuevo encargo',
                         content: detalle.observations?.join('\n') || '', // Ajusta según lo que requieras
                         tos: parsed.to?.value?.map(x => x.address) || [],
-                        attachments: this.dataProcessor.buildAttachmentsFromMail(parsed)
+                        datos:datos,
+                        detalle:detalle
                     });
                     tipoRegistro = classify;
 
@@ -146,14 +147,8 @@ class GeneraliProvider extends BaseProvider {
                     // ------ FLUJO ENVÍO DE COMUNICACIONES ------
                     const datos = await this.dataProcessor.extraerComunicacionGenerali(bodyXml);
                     classify = 'Mensaje';
-                    idUnico = `${this.compania.nombre}_${datos.idOrder}`;
+                    idUnico = `${this.compania.nombre}_${datos.idClaim}`;
 
-                    const [existe] = await connection.query('SELECT id FROM expedientes WHERE id_unico = ?', [idUnico]);
-                    if (existe.length > 0) {
-                        omitidos++;
-                        omitidosServicios.push(datos.idOrder || null);
-                        continue;
-                    }
 
                     // Login Generali
                     let tokenGenerali;
@@ -165,7 +160,7 @@ class GeneraliProvider extends BaseProvider {
                         omitidos++; continue;
                     }
                     const prefijo = this.dataProcessor.getPrefijoGenerali('user_segun_email', item.cuenta);
-                   
+
                     // Detalle de comunicaciones
                     let dialogList;
                     try {
@@ -181,15 +176,16 @@ class GeneraliProvider extends BaseProvider {
                         omitidos++; continue;
                     }
 
+
                     dataFinal = this.dataProcessor.buildComunicacionDiaple({
                         from: parsed.from?.text || '',
-                        prefijo:prefijo,
-                        caseNumber: datos.idOrder,
+                        prefijo: prefijo,
+                        caseNumber: datos.idClaim,
                         date: parsed.date ? new Date(parsed.date).toISOString() : '',
-                        subject: parsed.subject,
-                        content: dialogList.messages?.map(msg => msg.message).join('\n') || '',
-                        tos: parsed.to?.value?.map(x => x.address) || [],
-                        attachments: this.dataProcessor.buildAttachmentsFromMail(parsed)
+                        subject: "Nuevo diálogo",
+                        content: datos.message,
+                        tos: "cuidacasa@diaple.com",
+                        datos: datos
                     });
                     await this.apiClient.enviarComunicacionDiaple(dataFinal, this.token);
                     tipoRegistro = classify;

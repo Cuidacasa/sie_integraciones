@@ -11,7 +11,7 @@ class GeneraliDataProcessor {
         this.parsearXMLAsync = this.parsearXMLAsync.bind(this);
     }
 
-     parsearXMLAsync(xmlString) {
+    parsearXMLAsync(xmlString) {
         return new Promise((resolve, reject) => {
             xml2js.parseString(xmlString, { explicitArray: false, trim: true }, (err, result) => {
                 if (err) reject(err);
@@ -19,10 +19,10 @@ class GeneraliDataProcessor {
             });
         });
     }
-    
+
     // ---- 2. Helper para mapping de prefijos ----
-     getPrefijoGenerali(user, correo) {
-         user = userMap[correo];
+    getPrefijoGenerali(user, correo) {
+        user = userMap[correo];
         if (user.user === 'pgsekj4' && !correo.includes('cajamar')) return 'Ge';
         if (user.user === 'pgse2k3') return 'GeMad';
         if (user.user === 'pgseh5v' && !correo.includes('cajamar')) return 'GeGir';
@@ -30,41 +30,56 @@ class GeneraliDataProcessor {
         if (user.user === 'pgseh5v' && correo.includes('cajamar')) return 'CmGir';
         return '';
     }
-    
+
     // ---- 3. Normaliza y asegura que los campos sean strings ----
-     safeString(val) {
+    safeString(val) {
         if (typeof val === 'undefined' || val === null) return '';
         return String(val).trim();
     }
-    
+
     // ---- 4. Armador de JSON para DIAPLE (Expediente) ----
-     buildExpedienteDiaple({
+    buildExpedienteDiaple({
         from,
         prefijo,
         caseNumber,
         date,
         subject,
         content,
-        tos = [],
-        attachments = []
+        tos,
+        datos,
+        detalle
     }) {
         return {
-            from: this.safeString(from),
-            caseLogTypeCode: "CASE", // O el código que pida la integración
             contractCode: prefijo,
+            companyName: datos.company == 'K' ? 'Generali' : 'Cajamar',
             caseNumber: this.safeString(caseNumber),
-            date: this.safeString(date),
-            subject: this.safeString(subject),
-            content: this.safeString(content),
-            tos: Array.isArray(tos) ? tos : [tos],
-            cccs: [],
-            bccs: [],
-            attachments: attachments // [{filename, contentType, data (base64)}]
+            notificationNumber: datos.idOrder,
+            caseType: '',
+            caseDescription: 'Causa: ' + this.safeString(detalle?.orderID?.claim?.cause) + ' //// Descripcion: ' + this.safeString(detalle?.orderID?.claim?.description) + ' //// Condiciones: ' + this.safeString(detalle?.orderID?.claim?.generalConditions) + ' //// Intervención: ' + this.safeString(detalle?.orderID?.interventionType?.nameType) + ' //// AGENTE: ' + this.safeString(detalle?.insuranceAgent?.name) + ' ' + this.safeString(detalle?.insuranceAgent?.surname1) + ' ' + this.safeString(detalle?.insuranceAgent?.surname2) + ' telf:' + this.safeString(detalle?.insuranceAgent?.phoneNumber?.numberPhone) + ' Email:' + this.safeString(detalle?.insuranceAgent?.email) + '//// CONTACTO:' + this.safeString(detalle?.interlocutor?.name) + ' ' + this.safeString(detalle?.interlocutor?.surname1) + ' ' + this.safeString(detalle?.interlocutor?.surname2) + ' Telf:' + this.safeString(detalle?.interlocutor?.phoneNumber?.numberPhone) + ' Email:' + this.safeString(detalle?.interlocutor?.email) + '//// OBSERVACIONES:' + this.safeString(detalle?.observations && detalle.observations.length > 0 ? detalle.observations[detalle.observations.length - 1] : ''),
+            caseDate: this.safeString(date),
+            clientName: '',
+            clientPhone: '',
+            clientPhone2: '',
+            countryISOCode: 'ES',
+            address: '',
+            city: '',
+            zipCode: '',
+            policyNumber: '',
+            isVIP: false,
+            isUrgent: '',
+            clientVATNumber: '',
+            caseDeclaration: '',
+            caseTreatment: 'Normal',
+            capabilityDescription: '',
+            caseState: '',
+            processorName: '',
+            franchisePrice: 0,
+            provider: '',
         };
     }
-    
+
     // ---- 5. Armador de JSON para DIAPLE (Comunicación) ----
-     buildComunicacionDiaple({
+    buildComunicacionDiaple({
         from,
         prefijo,
         caseNumber,
@@ -72,7 +87,7 @@ class GeneraliDataProcessor {
         subject,
         content,
         tos = [],
-        attachments = []
+        datos
     }) {
         return {
             from: this.safeString(from),
@@ -88,14 +103,14 @@ class GeneraliDataProcessor {
             attachments: attachments
         };
     }
-    
+
     // ---- 6. Extracción de expediente GENERALI ----
-    async  extraerExpedienteGenerali(xmlBody) {
+    async extraerExpedienteGenerali(xmlBody) {
         const data = await this.parsearXMLAsync(xmlBody);
         // Permite campos con distintos nombres (mayúsculas/minúsculas)
         const order = data.ORDER || {};
         const get = (key) => order[key] || order[key.toUpperCase()] || order[key.toLowerCase()] || '';
-    
+
         return {
             idOrder: this.safeString(get('ID_ORDER') || get('ORDERID')),
             company: this.safeString(get('COMPANY')),
@@ -106,13 +121,13 @@ class GeneraliDataProcessor {
             rawOrder: order
         };
     }
-    
+
     // ---- 7. Extracción de comunicación GENERALI ----
-    async  extraerComunicacionGenerali(xmlBody) {
+    async extraerComunicacionGenerali(xmlBody) {
         const data = await this.parsearXMLAsync(xmlBody);
         const dialog = data.DIALOG || {};
         const get = (key) => dialog[key] || dialog[key.toUpperCase()] || dialog[key.toLowerCase()] || '';
-    
+
         // Saca todos los campos clave
         return {
             company: this.safeString(get('COMPANY')),
@@ -130,9 +145,9 @@ class GeneraliDataProcessor {
             rawDialog: dialog
         };
     }
-    
+
     // ---- 8. Helper para armar adjuntos en formato DIAPLE ----
-     buildAttachmentsFromMail(parsedMail) {
+    buildAttachmentsFromMail(parsedMail) {
         // parsedMail debe ser el objeto del correo ya parseado por mailparser
         if (!parsedMail.attachments || !Array.isArray(parsedMail.attachments)) return [];
         return parsedMail.attachments.map(att => ({
@@ -141,6 +156,6 @@ class GeneraliDataProcessor {
             data: att.content.toString('base64')
         }));
     }
-    
+
 }
 module.exports = GeneraliDataProcessor;
